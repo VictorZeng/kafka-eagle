@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import org.smartloli.kafka.eagle.common.protocol.BrokersInfo;
 import org.smartloli.kafka.eagle.common.protocol.KpiInfo;
 import org.smartloli.kafka.eagle.common.protocol.MBeanInfo;
+import org.smartloli.kafka.eagle.common.protocol.bscreen.BScreenConsumerInfo;
 import org.smartloli.kafka.eagle.common.protocol.topic.TopicOffsetsInfo;
 import org.smartloli.kafka.eagle.common.util.CalendarUtils;
 import org.smartloli.kafka.eagle.common.util.KConstants.MBean;
@@ -36,6 +37,7 @@ import org.smartloli.kafka.eagle.core.factory.KafkaService;
 import org.smartloli.kafka.eagle.core.factory.Mx4jFactory;
 import org.smartloli.kafka.eagle.core.factory.Mx4jService;
 import org.smartloli.kafka.eagle.web.dao.MBeanDao;
+import org.smartloli.kafka.eagle.web.dao.TopicDao;
 import org.smartloli.kafka.eagle.web.service.MetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,9 @@ public class MetricsServiceImpl implements MetricsService {
 
 	@Autowired
 	private MBeanDao mbeanDao;
+
+	@Autowired
+	private TopicDao topicDao;
 
 	/** Kafka service interface. */
 	private KafkaService kafkaService = new KafkaFactory().create();
@@ -263,6 +268,36 @@ public class MetricsServiceImpl implements MetricsService {
 	@Override
 	public void cleanConsumerTopic(int tm) {
 		mbeanDao.cleanConsumerTopic(tm);
+	}
+
+	@Override
+	public void cleanTopicLogSize(int tm) {
+		topicDao.cleanTopicLogSize(tm);
+	}
+
+	@Override
+	public void cleanTopicRank(int tm) {
+		topicDao.cleanTopicRank(tm);
+	}
+
+	@Override
+	public void cleanBScreenConsumerTopic(int tm) {
+		topicDao.cleanBScreenConsumerTopic(tm);
+	}
+
+	@Override
+	public int writeBSreenConsumerTopic(List<BScreenConsumerInfo> bscreenConsumers) {
+		return topicDao.writeBSreenConsumerTopic(bscreenConsumers);
+	}
+
+	@Override
+	public BScreenConsumerInfo readBScreenLastTopic(Map<String, Object> params) {
+		return topicDao.readBScreenLastTopic(params);
+	}
+
+	@Override
+	public void cleanTopicSqlHistory(int tm) {
+		topicDao.cleanTopicSqlHistory(tm);
 	}
 
 }

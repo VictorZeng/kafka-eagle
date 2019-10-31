@@ -26,7 +26,11 @@ import org.smartloli.kafka.eagle.common.protocol.BrokersInfo;
 import org.smartloli.kafka.eagle.common.protocol.MBeanInfo;
 import org.smartloli.kafka.eagle.common.protocol.MetadataInfo;
 import org.smartloli.kafka.eagle.common.protocol.PartitionsInfo;
+import org.smartloli.kafka.eagle.common.protocol.bscreen.BScreenBarInfo;
 import org.smartloli.kafka.eagle.common.protocol.topic.TopicConfig;
+import org.smartloli.kafka.eagle.common.protocol.topic.TopicLogSize;
+import org.smartloli.kafka.eagle.common.protocol.topic.TopicSqlHistory;
+import org.smartloli.kafka.eagle.common.util.CalendarUtils;
 import org.smartloli.kafka.eagle.common.util.KConstants.Kafka;
 import org.smartloli.kafka.eagle.common.util.KConstants.MBean;
 import org.smartloli.kafka.eagle.common.util.KConstants.Topic;
@@ -41,7 +45,9 @@ import org.smartloli.kafka.eagle.core.factory.v2.BrokerService;
 import org.smartloli.kafka.eagle.core.metrics.KafkaMetricsFactory;
 import org.smartloli.kafka.eagle.core.metrics.KafkaMetricsService;
 import org.smartloli.kafka.eagle.core.sql.execute.KafkaSqlParser;
+import org.smartloli.kafka.eagle.web.dao.TopicDao;
 import org.smartloli.kafka.eagle.web.service.TopicService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.alibaba.fastjson.JSONArray;
@@ -59,6 +65,9 @@ import com.google.gson.Gson;
  */
 @Service
 public class TopicServiceImpl implements TopicService {
+
+	@Autowired
+	private TopicDao topicDao;
 
 	/** Kafka service interface. */
 	private KafkaService kafkaService = new KafkaFactory().create();
@@ -243,6 +252,87 @@ public class TopicServiceImpl implements TopicService {
 		object.put("topicsize", topicSize.getString("size"));
 		object.put("sizetype", topicSize.getString("type"));
 		return object.toJSONString();
+	}
+
+	/** Get topic producer logsize chart datasets. */
+	public String queryTopicProducerChart(Map<String, Object> params) {
+		List<TopicLogSize> topicLogSizes = topicDao.queryTopicProducerChart(params);
+		JSONArray arrays = new JSONArray();
+		for (TopicLogSize topicLogSize : topicLogSizes) {
+			JSONObject object = new JSONObject();
+			object.put("x", CalendarUtils.convertUnixTime(topicLogSize.getTimespan(), "yyyy-MM-dd HH:mm"));
+			object.put("y", topicLogSize.getDiffval());
+			arrays.add(object);
+		}
+		return arrays.toJSONString();
+	}
+
+	@Override
+	public String getSelectTopics(String clusterAlias, String prefixTopic) {
+		return brokerService.topicListParams(clusterAlias, prefixTopic);
+	}
+
+	@Override
+	public String getSelectTopicsLogSize(String clusterAlias, Map<String, Object> params) {
+		JSONArray array = new JSONArray();
+		List<BScreenBarInfo> bsProducers = topicDao.queryProducerHistoryBar(params);
+		Map<String, Object> bsMaps = new HashMap<>();
+		for (BScreenBarInfo bsProducer : bsProducers) {
+			if (bsProducer != null) {
+				bsMaps.put(bsProducer.getTm(), bsProducer.getValue());
+			}
+		}
+		int index = 0;
+		try {
+			index = CalendarUtils.getDiffDay(params.get("stime").toString(), params.get("etime").toString());
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		for (int i = index; i >= 0; i--) {
+			String tm = CalendarUtils.getCustomLastDay(i);
+			if (bsMaps.containsKey(tm)) {
+				JSONObject object = new JSONObject();
+				object.put("x", CalendarUtils.getCustomLastDay("yyyy-MM-dd", i));
+				object.put("y", bsMaps.get(tm).toString());
+				array.add(object);
+			} else {
+				JSONObject object = new JSONObject();
+				object.put("x", CalendarUtils.getCustomLastDay("MM-dd", i));
+				object.put("y", 0);
+				array.add(object);
+			}
+		}
+		return array.toJSONString();
+	}
+
+	@Override
+	public int writeTopicSqlHistory(List<TopicSqlHistory> topicSqlHistorys) {
+		return topicDao.writeTopicSqlHistory(topicSqlHistorys);
+	}
+
+	@Override
+	public List<TopicSqlHistory> readTopicSqlHistory(Map<String, Object> params) {
+		return topicDao.readTopicSqlHistory(params);
+	}
+
+	@Override
+	public List<TopicSqlHistory> readTopicSqlHistoryByAdmin(Map<String, Object> params) {
+		return topicDao.readTopicSqlHistoryByAdmin(params);
+	}
+
+	@Override
+	public long countTopicSqlHistory(Map<String, Object> params) {
+		return topicDao.countTopicSqlHistory(params);
+	}
+
+	@Override
+	public long countTopicSqlHistoryByAdmin(Map<String, Object> params) {
+		return topicDao.countTopicSqlHistoryByAdmin(params);
+	}
+
+	@Override
+	public TopicSqlHistory findTopicSqlByID(Map<String, Object> params) {
+		return topicDao.findTopicSqlByID(params);
 	}
 
 }

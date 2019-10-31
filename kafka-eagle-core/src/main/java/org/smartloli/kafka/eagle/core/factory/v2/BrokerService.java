@@ -38,6 +38,9 @@ public interface BrokerService {
 
 	/** Get topic list. */
 	public List<String> topicList(String clusterAlias);
+	
+	/** Get select topic list. */
+	public String topicListParams(String clusterAlias,String search);
 
 	/** Get kafka broker numbers. */
 	public long brokerNumbers(String clusterAlias);
@@ -71,5 +74,8 @@ public interface BrokerService {
 
 	/** Get topic real logsize records. */
 	public long getTopicRealLogSize(String clusterAlias, String topic);
+	
+	/** Get topic producer send logsize records. */
+	public long getTopicProducerLogSize(String clusterAlias, String topic);
 
 }

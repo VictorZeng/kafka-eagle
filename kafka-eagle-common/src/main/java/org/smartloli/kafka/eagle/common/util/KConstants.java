@@ -152,6 +152,8 @@ public class KConstants {
 
 	public interface IM {
 		public static String TITLE = "Kafka Eagle Alert";
+		public static String MARKDOWN = "markdown";
+		public static String STRING = "string";
 	}
 
 	public interface WeChat {
@@ -183,12 +185,39 @@ public class KConstants {
 		public final static int SHUTDOWN = 1;
 		public final static int PENDING = 2;
 
+		public final static String RUNNING_STRING = "Running";
+		public final static String SHUTDOWN_STRING = "Shutdown";
+		public final static String PENDING_STRING = "Pending";
+
+		public final static String PRODUCERS = "producers";
+		public final static String CONSUMERS = "consumers";
+		public final static String LAG = "lag";
 	}
 
 	public interface Component {
 		/** Flink app consumer don't commit consumer info into kafka. */
 		public static String UNKNOW = "unknow-host";
 
+	}
+
+	public interface AlarmType {
+		// public static String[] TYPE = new String[] { "Email", "DingDing",
+		// "WeChat", "WebHook" };
+		public static String[] TYPE = new String[] { "DingDing", "WeChat" };
+		public static String[] CLUSTER = new String[] { "Kafka", "Zookeeper" };
+		public static String[] LEVEL = new String[] { "P0", "P1", "P2", "P3" };
+		public static int[] MAXTIMES = new int[] { -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+		public static String EMAIL = "Email";
+		public static String DingDing = "DingDing";
+		public static String WeChat = "WeChat";
+		public static String WebHook = "WebHook";
+		public static String HTTP_GET = "get";
+		public static String HTTP_POST = "post";
+		public static String DISABLE = "N";
+	}
+
+	public interface AlarmQueue {
+		public static String JOB_PARAMS = "job_params";
 	}
 
 }

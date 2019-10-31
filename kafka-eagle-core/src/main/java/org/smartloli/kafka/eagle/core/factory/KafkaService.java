@@ -99,6 +99,9 @@ public interface KafkaService {
 
 	/** Get kafka 0.10.x consumer group & topic information. */
 	public String getKafkaConsumer(String clusterAlias);
+	
+	/** Get kafka 0.10.x consumer group & topic information used for page. */
+	public String getKafkaConsumer(String clusterAlias,DisplayInfo page);
 
 	@Deprecated
 	/** Get kafka consumer information pages. */
@@ -130,6 +133,9 @@ public interface KafkaService {
 
 	/** Get kafka topic real logsize by partitionid set. */
 	public long getKafkaRealLogSize(String clusterAlias, String topic, Set<Integer> partitionids);
+	
+	/** Get topic producer send logsize records. */
+	public long getKafkaProducerLogSize(String clusterAlias, String topic, Set<Integer> partitionids);
 
 	/** Get kafka sasl topic metadate. */
 	public List<MetadataInfo> findKafkaLeader(String clusterAlias, String topic);

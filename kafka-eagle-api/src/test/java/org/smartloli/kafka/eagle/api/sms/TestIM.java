@@ -17,10 +17,10 @@
  */
 package org.smartloli.kafka.eagle.api.sms;
 
-import org.smartloli.kafka.eagle.api.email.module.ClusterContentModule;
-import org.smartloli.kafka.eagle.api.email.module.LagContentModule;
+import org.smartloli.kafka.eagle.api.im.IMFactory;
+import org.smartloli.kafka.eagle.api.im.IMService;
 import org.smartloli.kafka.eagle.api.im.IMServiceImpl;
-import org.smartloli.kafka.eagle.common.util.CalendarUtils;
+import org.smartloli.kafka.eagle.common.protocol.alarm.AlarmMessageInfo;
 
 /**
  * TODO
@@ -31,53 +31,49 @@ import org.smartloli.kafka.eagle.common.util.CalendarUtils;
  */
 public class TestIM {
 	public static void main(String[] args) {
-		testClusterHeathyByDingDing();
-		testConsumerHeathyByWeChat();
+//		testAlarmClusterByDingDingMarkDown();
+		testAlarmClusterByWeChatMarkDown();
+		
 	}
 	
-	private static void testConsumerHeathyByWeChat() {
-		ClusterContentModule ccm = new ClusterContentModule();
-		ccm.setCluster("cluster2");
-		ccm.setServer("kafka-node-01:9093");
-		ccm.setTime(CalendarUtils.getDate());
-		ccm.setType("Kafka");
-		ccm.setUser("smartloli.org@gmail.com");
-		
-		LagContentModule lcm = new LagContentModule();
-		lcm.setCluster("cluster2");
-		lcm.setConsumerLag("50000");
-		lcm.setGroup("ke-storm-group");
-		lcm.setLagThreshold("2000");
-		lcm.setTime(CalendarUtils.getDate());
-		lcm.setTopic("ke-t-storm-money");
-		lcm.setType("Consumer");
-		lcm.setUser("smartloli.org@gmail.com");
-		
-		IMServiceImpl im = new IMServiceImpl();
-		im.sendJsonMsgByWeChat(ccm.toWeChatMarkDown());
-		im.sendJsonMsgByWeChat(lcm.toWeChatMarkDown());
+	/** New alarm im api. */
+	private static void testAlarmClusterByWeChatMarkDown() {
+		AlarmMessageInfo alarmMsg = new AlarmMessageInfo();
+		// FF0000 (red), 008000(green), FFA500(yellow)
+		alarmMsg.setTitle("`Kafka Eagle Alarm Notice`\n");
+		alarmMsg.setAlarmContent("<font color=\"warning\">node.shutdown [ localhost:9092 ]</font>");
+		// alarmMsg.setAlarmContent("<font color=\"#008000\">node.alive [
+		// localhost:9092 ]</font>");
+		alarmMsg.setAlarmDate("2019-10-07 21:43:22");
+		alarmMsg.setAlarmLevel("P0");
+		alarmMsg.setAlarmProject("Kafka");
+		alarmMsg.setAlarmStatus("<font color=\"warning\">PROBLEM</font>");
+		// alarmMsg.setAlarmStatus("<font color=\"#008000\">NORMAL</font>");
+		alarmMsg.setAlarmTimes("current(1), max(7)");
+
+		 IMServiceImpl im = new IMServiceImpl();
+		 im.sendPostMsgByWeChat(alarmMsg.toWeChatMarkDown(),"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=7F6VllJEZg3vmJMpUby7EODzLIYO7enPM63upDItIPKj2HQ5scEDtbHX6-Fb2Ruz87qjuiMpTLT0l9gfllXwhN_7gG_4QIhXBsvAx2A9zNwWmGz_v_8VoTHxEM8GK7LMn2_AZValKjB-U7XxIfwrcMXx1Im9wX8rw72gLU_9onCAVKNJVvP5DTDyIPCXAR6B7KuBnaI86mqS8mg3KTT5ug");
 	}
 
-	private static void testClusterHeathyByDingDing() {
-		ClusterContentModule ccm = new ClusterContentModule();
-		ccm.setCluster("cluster2");
-		ccm.setServer("zookeeper-node-01:2183");
-		ccm.setTime(CalendarUtils.getDate());
-		ccm.setType("Zookeeper");
-		ccm.setUser("smartloli.org@gmail.com");
+	/** New alarm im api. */
+	private static void testAlarmClusterByDingDingMarkDown() {
+		AlarmMessageInfo alarmMsg = new AlarmMessageInfo();
+		// FF0000 (red), 008000(green), FFA500(yellow)
+		alarmMsg.setTitle("**<font color=\"#FF0000\">Kafka Eagle Alarm Notice</font>** \n\n");
+		alarmMsg.setAlarmContent("<font color=\"#FF0000\">node.shutdown [ localhost:9092 ]</font>");
+		// alarmMsg.setAlarmContent("<font color=\"#008000\">node.alive [
+		// localhost:9092 ]</font>");
+		alarmMsg.setAlarmDate("2019-10-07 21:43:22");
+		alarmMsg.setAlarmLevel("P0");
+		alarmMsg.setAlarmProject("Kafka");
+		alarmMsg.setAlarmStatus("<font color=\"#FF0000\">PROBLEM</font>");
+		// alarmMsg.setAlarmStatus("<font color=\"#008000\">NORMAL</font>");
+		alarmMsg.setAlarmTimes("current(1), max(7)");
 
-		LagContentModule lcm = new LagContentModule();
-		lcm.setCluster("cluster2");
-		lcm.setConsumerLag("50000");
-		lcm.setGroup("ke-storm-group");
-		lcm.setLagThreshold("2000");
-		lcm.setTime(CalendarUtils.getDate());
-		lcm.setTopic("ke-t-storm-money");
-		lcm.setType("Consumer");
-		lcm.setUser("smartloli.org@gmail.com");
-
-		IMServiceImpl im = new IMServiceImpl();
-		im.sendJsonMsgByDingDing(ccm.toDingDingMarkDown());
-		im.sendJsonMsgByDingDing(lcm.toDingDingMarkDown());
+		IMService im = new IMFactory().create();
+		im.sendPostMsgByDingDing(alarmMsg.toDingDingMarkDown(),"https://oapi.dingtalk.com/robot/send?access_token=3b7b59d17db0145549b1f65f62921b44bacd1701e635e797da45318a94339060");
+		//IMServiceImpl im = new IMServiceImpl();
+		//im.sendPostMsgByDingDing(alarmMsg.toDingDingMarkDown(),"https://oapi.dingtalk.com/robot/send?access_token=3b7b59d17db0145549b1f65f62921b44bacd1701e635e797da45318a94339060");
 	}
+
 }

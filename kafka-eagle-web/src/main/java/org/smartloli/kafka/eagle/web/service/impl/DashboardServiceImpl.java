@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import org.smartloli.kafka.eagle.common.protocol.BrokersInfo;
 import org.smartloli.kafka.eagle.common.protocol.DashboardInfo;
 import org.smartloli.kafka.eagle.common.protocol.KpiInfo;
+import org.smartloli.kafka.eagle.common.protocol.topic.TopicLogSize;
 import org.smartloli.kafka.eagle.common.protocol.topic.TopicRank;
 import org.smartloli.kafka.eagle.common.util.KConstants;
 import org.smartloli.kafka.eagle.common.util.KConstants.Topic;
@@ -168,6 +169,11 @@ public class DashboardServiceImpl implements DashboardService {
 	public int writeTopicRank(List<TopicRank> topicRanks) {
 		return topicDao.writeTopicRank(topicRanks);
 	}
+	
+	/** Write statistics topic logsize data from kafka jmx & insert into table. */
+	public int writeTopicLogSize(List<TopicLogSize> topicLogSize) {
+		return topicDao.writeTopicLogSize(topicLogSize);
+	}
 
 	/** Get os memory data. */
 	public String getOSMem(Map<String, Object> params) {
@@ -185,6 +191,11 @@ public class DashboardServiceImpl implements DashboardService {
 			object.put("mem", "0.0");
 		}
 		return object.toJSONString();
+	}
+
+	/** Read topic lastest logsize diffval data. */
+	public TopicLogSize readLastTopicLogSize(Map<String, Object> params) {
+		return topicDao.readLastTopicLogSize(params);
 	}
 
 }

@@ -19,6 +19,9 @@ Supported JDK: ```JDK8+```
 
 Here are a few Kafka Eagle system screenshots:
 
+# Big Screen Support
+![BScreen](https://blobscdn.gitbook.com/v0/b/gitbook-28427.appspot.com/o/assets%2F-LjfmXHRajdxow3o-cxI%2F-LnhzyWefw2gURVMl-Km%2F-LnhzzESQ0FVm_ReDJkb%2Fbscreen@2x.png?generation=1567361072225328&alt=media)
+
 # Alert Support
 In addition to supporting ```email``` alerts, Kafka Eagle also supports im alerts, such as ```DingDing``` and ```WeChat```.
 ![DingDing Alert](https://docs.kafka-eagle.org/res/dingding@2x.png)
@@ -98,3 +101,4 @@ Thanks to the following members for maintaining the project.
 |hexiang|[hexian55](https://github.com/hexian55)|hexiang55@gmail.com|
 |cocodroid|[cocodroid](https://github.com/cocodroid)|sujunguang@gmail.com|
 |alisa|[alisa](https://github.com/zoumm)|alisazou1211@gmail.com|
+|iamwzt|[iamwzt](https://github.com/iamwzt)|981911861@qq.com|

@@ -48,6 +48,7 @@ import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.ListConsumerGroupsResult;
 import org.apache.kafka.clients.admin.MemberDescription;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -86,8 +87,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
-import kafka.admin.RackAwareMode;
-import kafka.zk.AdminZkClient;
 import kafka.zk.KafkaZkClient;
 import scala.Option;
 import scala.Tuple2;
@@ -109,7 +108,7 @@ public class KafkaServiceImpl implements KafkaService {
 
 	private final String BROKER_IDS_PATH = "/brokers/ids";
 	private final String BROKER_TOPICS_PATH = "/brokers/topics";
-	private final String DELETE_TOPICS_PATH = "/admin/delete_topics";
+	// private final String DELETE_TOPICS_PATH = "/admin/delete_topics";
 	private final String CONSUMERS_PATH = "/consumers";
 	private final String OWNERS = "/owners";
 	private final String TOPIC_ISR = "/brokers/topics/%s/partitions/%s/state";
@@ -517,14 +516,24 @@ public class KafkaServiceImpl implements KafkaService {
 			targets.put("status", "error");
 			targets.put("info", "replication factor: " + replic + " larger than available brokers: " + brokers);
 			return targets;
+		}        
+		Properties prop = new Properties();
+		prop.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, parseBrokerServer(clusterAlias));
+
+		if (SystemConfigUtils.getBooleanProperty(clusterAlias + ".kafka.eagle.sasl.enable")) {
+			sasl(prop, clusterAlias);
 		}
-		KafkaZkClient zkc = kafkaZKPool.getZkClient(clusterAlias);
-		AdminZkClient adminZkCli = new AdminZkClient(zkc);
-		adminZkCli.createTopic(topicName, Integer.parseInt(partitions), Integer.parseInt(replic), new Properties(), RackAwareMode.Enforced$.MODULE$);
-		if (zkc != null) {
-			kafkaZKPool.release(clusterAlias, zkc);
-			zkc = null;
-			adminZkCli = null;
+
+		AdminClient adminClient = null;
+		try {
+			adminClient = AdminClient.create(prop);
+			NewTopic newTopic = new NewTopic(topicName, Integer.valueOf(partitions), Short.valueOf(replic));
+			adminClient.createTopics(Collections.singleton(newTopic)).all().get();
+		} catch (Exception e) {
+			LOG.info("Create kafka topic has error, msg is " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			adminClient.close();
 		}
 
 		targets.put("status", "success");
@@ -535,20 +544,25 @@ public class KafkaServiceImpl implements KafkaService {
 	/** Delete topic to kafka cluster. */
 	public Map<String, Object> delete(String clusterAlias, String topicName) {
 		Map<String, Object> targets = new HashMap<String, Object>();
-		KafkaZkClient zkc = kafkaZKPool.getZkClient(clusterAlias);
-		AdminZkClient adminZkCli = new AdminZkClient(zkc);
-		adminZkCli.deleteTopic(topicName);
-		boolean dt = zkc.deleteRecursive(DELETE_TOPICS_PATH + "/" + topicName);
-		boolean bt = zkc.deleteRecursive(BROKER_TOPICS_PATH + "/" + topicName);
-		if (dt && bt) {
+		Properties prop = new Properties();
+		prop.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, parseBrokerServer(clusterAlias));
+
+		if (SystemConfigUtils.getBooleanProperty(clusterAlias + ".kafka.eagle.sasl.enable")) {
+			sasl(prop, clusterAlias);
+		}
+
+		AdminClient adminClient = null;
+		try {
+			adminClient = AdminClient.create(prop);
+			adminClient.deleteTopics(Collections.singleton(topicName)).all().get();
 			targets.put("status", "success");
-		} else {
+		} catch (Exception e) {
+			LOG.info("Delete kafka topic has error, msg is " + e.getMessage());
+			e.printStackTrace();
 			targets.put("status", "failed");
-		}
-		if (zkc != null) {
-			kafkaZKPool.release(clusterAlias, zkc);
-			zkc = null;
-		}
+		} finally {
+			adminClient.close();
+		}        
 		return targets;
 	}
 
@@ -700,6 +714,87 @@ public class KafkaServiceImpl implements KafkaService {
 					}
 					consumerGroup.put("meta", getKafkaMetadata(parseBrokerServer(clusterAlias), groupId, clusterAlias));
 					consumerGroups.add(consumerGroup);
+				}
+			}
+		} catch (Exception e) {
+			LOG.error("Get kafka consumer has error,msg is " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			adminClient.close();
+		}
+		return consumerGroups.toJSONString();
+	}
+
+	/** Get kafka 0.10.x consumer group & topic information used for page. */
+	public String getKafkaConsumer(String clusterAlias, DisplayInfo page) {
+		Properties prop = new Properties();
+		JSONArray consumerGroups = new JSONArray();
+		prop.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, parseBrokerServer(clusterAlias));
+
+		if (SystemConfigUtils.getBooleanProperty(clusterAlias + ".kafka.eagle.sasl.enable")) {
+			sasl(prop, clusterAlias);
+		}
+
+		AdminClient adminClient = null;
+		try {
+			adminClient = AdminClient.create(prop);
+			ListConsumerGroupsResult cgrs = adminClient.listConsumerGroups();
+			java.util.Iterator<ConsumerGroupListing> itor = cgrs.all().get().iterator();
+			if (page.getSearch().length() > 0) {
+				int offset = 0;
+				boolean flag = itor.hasNext();
+				while (flag) {
+					ConsumerGroupListing gs = itor.next();
+					JSONObject consumerGroup = new JSONObject();
+					String groupId = gs.groupId();
+					DescribeConsumerGroupsResult descConsumerGroup = adminClient.describeConsumerGroups(Arrays.asList(groupId));
+					if (!groupId.contains("kafka.eagle") && groupId.contains(page.getSearch())) {
+						if (offset < (page.getiDisplayLength() + page.getiDisplayStart()) && offset >= page.getiDisplayStart()) {
+							consumerGroup.put("group", groupId);
+							try {
+								Node node = descConsumerGroup.all().get().get(groupId).coordinator();
+								consumerGroup.put("node", node.host() + ":" + node.port());
+							} catch (Exception e) {
+								LOG.error("Get coordinator node has error, msg is " + e.getMessage());
+								e.printStackTrace();
+							}
+							consumerGroup.put("meta", getKafkaMetadata(parseBrokerServer(clusterAlias), groupId, clusterAlias));
+							consumerGroups.add(consumerGroup);
+						}
+						offset++;
+					}
+					flag = itor.hasNext();
+					if (offset >= page.getiDisplayLength() + page.getiDisplayStart()) {
+						flag = false;
+					}
+				}
+			} else {
+				int offset = 0;
+				boolean flag = itor.hasNext();
+				while (flag) {
+					ConsumerGroupListing gs = itor.next();
+					JSONObject consumerGroup = new JSONObject();
+					String groupId = gs.groupId();
+					DescribeConsumerGroupsResult descConsumerGroup = adminClient.describeConsumerGroups(Arrays.asList(groupId));
+					if (!groupId.contains("kafka.eagle")) {
+						if (offset < (page.getiDisplayLength() + page.getiDisplayStart()) && offset >= page.getiDisplayStart()) {
+							consumerGroup.put("group", groupId);
+							try {
+								Node node = descConsumerGroup.all().get().get(groupId).coordinator();
+								consumerGroup.put("node", node.host() + ":" + node.port());
+							} catch (Exception e) {
+								LOG.error("Get coordinator node has error, msg is " + e.getMessage());
+								e.printStackTrace();
+							}
+							consumerGroup.put("meta", getKafkaMetadata(parseBrokerServer(clusterAlias), groupId, clusterAlias));
+							consumerGroups.add(consumerGroup);
+						}
+						offset++;
+					}
+					flag = itor.hasNext();
+					if (offset >= page.getiDisplayLength() + page.getiDisplayStart()) {
+						flag = false;
+					}
 				}
 			}
 		} catch (Exception e) {
@@ -915,11 +1010,11 @@ public class KafkaServiceImpl implements KafkaService {
 				TopicPartition tp = new TopicPartition(topic, partitionid);
 				tps.add(tp);
 			}
-			
+
 			ListConsumerGroupOffsetsOptions consumerOffsetOptions = new ListConsumerGroupOffsetsOptions();
 			consumerOffsetOptions.topicPartitions(tps);
-			
-			ListConsumerGroupOffsetsResult offsets = adminClient.listConsumerGroupOffsets(group,consumerOffsetOptions);
+
+			ListConsumerGroupOffsetsResult offsets = adminClient.listConsumerGroupOffsets(group, consumerOffsetOptions);
 			for (Entry<TopicPartition, OffsetAndMetadata> entry : offsets.partitionsToOffsetAndMetadata().get().entrySet()) {
 				if (topic.equals(entry.getKey().topic())) {
 					partitionOffset.put(entry.getKey().partition(), entry.getValue().offset());
@@ -1020,7 +1115,7 @@ public class KafkaServiceImpl implements KafkaService {
 		}
 		return realLogSize;
 	}
-
+	
 	/** Get kafka 0.10.x topic real logsize by partitionid set. */
 	public long getKafkaRealLogSize(String clusterAlias, String topic, Set<Integer> partitionids) {
 		long realLogSize = 0L;
@@ -1060,6 +1155,40 @@ public class KafkaServiceImpl implements KafkaService {
 			}
 		}
 		return realLogSize;
+	}
+
+	/** Get topic producer send logsize records. */
+	public long getKafkaProducerLogSize(String clusterAlias, String topic, Set<Integer> partitionids) {
+		long producerLogSize = 0L;
+		Properties props = new Properties();
+		props.put(ConsumerConfig.GROUP_ID_CONFIG, Kafka.KAFKA_EAGLE_SYSTEM_GROUP);
+		props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, getKafkaBrokerServer(clusterAlias));
+		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getCanonicalName());
+		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getCanonicalName());
+		if (SystemConfigUtils.getBooleanProperty(clusterAlias + ".kafka.eagle.sasl.enable")) {
+			sasl(props, clusterAlias);
+		}
+		KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+		Set<TopicPartition> tps = new HashSet<>();
+		for (int partitionid : partitionids) {
+			TopicPartition tp = new TopicPartition(topic, partitionid);
+			tps.add(tp);
+		}
+		consumer.assign(tps);
+		java.util.Map<TopicPartition, Long> endLogSize = consumer.endOffsets(tps);
+		try {
+			for (Entry<TopicPartition, Long> entry : endLogSize.entrySet()) {
+				producerLogSize += entry.getValue();
+			}
+		} catch (Exception e) {
+			LOG.error("Get producer topic logsize has error, msg is " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			if (consumer != null) {
+				consumer.close();
+			}
+		}
+		return producerLogSize;
 	}
 
 	/** Get kafka version. */
@@ -1356,4 +1485,5 @@ public class KafkaServiceImpl implements KafkaService {
 		}
 		return memory;
 	}
+
 }
